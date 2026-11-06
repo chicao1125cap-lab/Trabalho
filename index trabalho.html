@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Consulta Tabela FIPE</title>
+</head>
+<body>
+  <h1>🚗 Consulta Tabela FIPE</h1>
+
+  <select id="marca"><option value="">Marca</option></select>
+  <select id="modelo"><option value="">Modelo</option></select>
+  <select id="ano"><option value="">Ano</option></select>
+
+  <!-- indicador de processamento: aparece durante cada requisição -->
+  <p id="carregando" hidden>⏳ Carregando...</p>
+  <div id="resultado"></div>
+
+  <script>
+    const API = "https://brasilapi.com.br/api/fipe";
+    const $ = id => document.getElementById(id);
+
+    // faz a requisição à BrasilAPI mostrando o "Carregando..."
+    async function buscar(caminho) {
+      $("carregando").hidden = false;
+      $("resultado").textContent = "";
+      try {
+        const resposta = await fetch(API + caminho);
+        return await resposta.json();
+      } finally {
+        $("carregando").hidden = true;
+      }
+    }
+
+    // zera um <select> e preenche com a lista recebida da API
+    function preencher(select, texto, lista, campo) {
+      select.innerHTML = `<option value="">${texto}</option>`;
+      for (const item of lista) select.add(new Option(item[campo], item.valor));
+    }
+
+    // 1) ao abrir a página: carrega as marcas
+    (async () => preencher($("marca"), "Marca", await buscar("/marcas/v1/carros"), "nome"))();
+
+    // 2) escolheu a marca: carrega os modelos
+    $("marca").onchange = async () => {
+      preencher($("modelo"), "Modelo", [], "modelo");
+      preencher($("ano"), "Ano", [], "nome");
+      if (!$("marca").value) return;
+      preencher($("modelo"), "Modelo", await buscar(`/veiculos/v1/carros/${$("marca").value}`), "modelo");
+    };
+
+    // 3) escolheu o modelo: carrega os anos
+    $("modelo").onchange = async () => {
+      preencher($("ano"), "Ano", [], "nome");
+      if (!$("modelo").value) return;
+      preencher($("ano"), "Ano", await buscar(`/anos/v1/carros/${$("marca").value}/${$("modelo").value}`), "nome");
+    };
+
+    // 4) escolheu o ano: consulta e mostra o preço
+    $("ano").onchange = async () => {
+      if (!$("ano").value) return;
+      const v = await buscar(`/detalhes/v1/carros/${$("marca").value}/${$("modelo").value}/${$("ano").value}`);
+      $("resultado").textContent = `${v.marca} ${v.modelo} (${v.anoModelo}): ${v.valor} — ref. ${v.mesReferencia}`;
+    };
+  </script>
+</body>
+</html>
